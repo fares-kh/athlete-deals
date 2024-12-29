@@ -1,8 +1,19 @@
 import React from 'react'
 import axios from 'axios'
 
+interface Product {
+  product: {
+    name: string;
+    price: string;
+  }
+}
+
+interface ProductData {
+  [key: string]: Product;
+}
+
 function App() {
-  const [productData, setProductData] = React.useState(null)
+  const [productData, setProductData] = React.useState<ProductData | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -21,6 +32,8 @@ function App() {
 
     fetchProductData()
   }, [])
+
+  console.log(productData)
 
   return (
     <div className="App">

@@ -13,6 +13,7 @@ app.get('/', (req, res) => {
   res.send("Hello, World!")
 })
 
+
 app.get('/scrape', async (req, res) => {
   try {
     const browser = await puppeteer.launch({
