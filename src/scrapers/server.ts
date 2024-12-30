@@ -13,54 +13,82 @@ app.get('/', (req, res) => {
   res.send("Hello, World!")
 })
 
+enum Providers {
+  BULK_POWDERS = 'bulk',
+  MY_PROTEIN = 'myprotein'
+}
+
+enum SearchQueries {
+  PEANUT_BUTTER = 'peanutbutter',
+  POWDER = 'powder'
+}
+
+const domElements: Record<Providers, Record<string, string>> = {
+  [Providers.BULK_POWDERS]: {
+    name: '.header-title',
+    price: '.dropin-price',
+  },
+  [Providers.MY_PROTEIN]: {
+    name: '#product-title',
+    price: '.price',
+  }
+}
+
+const providerUrls: Record<Providers, string> = {
+  [Providers.BULK_POWDERS]: 'https://www.bulk.com/uk/products/',
+  [Providers.MY_PROTEIN]: 'https://www.myprotein.com/p/sports-nutrition/',
+};
+
+const searchQueryUrls: Record<SearchQueries, Record<Providers, string>> = {
+  [SearchQueries.PEANUT_BUTTER]: {
+    [Providers.BULK_POWDERS]: 'peanut-butter-1kg/bpf-pbut',
+    [Providers.MY_PROTEIN]: 'all-natural-peanut-butter/10530743/',
+  },
+  [SearchQueries.POWDER]: {
+    [Providers.BULK_POWDERS]: '/',
+    [Providers.MY_PROTEIN]: '/',
+  }
+};
 
 app.get('/scrape', async (req, res) => {
   try {
+    const providers = Object.values(Providers)
     const browser = await puppeteer.launch({
-        headless: true,
-      })
+      headless: true,
+    })
 
-    const page = await browser.newPage()
+    const searchQuery = SearchQueries.PEANUT_BUTTER // change this dep on search query
+    const queryUrls = searchQueryUrls[searchQuery]
 
-    const BULK_POWDERS = 'https://www.bulk.com/uk/products/peanut-butter-1kg/bpf-pbut'
+    const results = await Promise.all(
+      providers.map(async (provider) => {
+      const url = `${providerUrls[provider]}${queryUrls[provider]}`
+      const page = await browser.newPage()
+      await page.goto(url, { waitUntil: 'networkidle2' })
 
-    await page.goto(BULK_POWDERS, { waitUntil: 'networkidle2' })
+      await page.waitForSelector(domElements[provider].name)
+      await page.waitForSelector(domElements[provider].price)
 
-    await page.waitForSelector('.header-title')
-    await page.waitForSelector('.dropin-price')
-
-    const bulkPowdersName = await page.$eval('.header-title', (el) => el.textContent.trim())
-    const bulkPowdersPrice = await page.$eval('.dropin-price', (el) => el.textContent.trim())
-
-    const MY_PROTEIN = 'https://www.myprotein.com/p/sports-nutrition/all-natural-peanut-butter/10530743/'
-
-    await page.goto(MY_PROTEIN, { waitUntil: 'networkidle2' })
-
-    await page.waitForSelector('#product-title')
-    await page.waitForSelector('.price')
-
-    const myProteinName = await page.$eval('#product-title', (el) => el.textContent.trim())
-    const myProteinPrice = await page.$eval('.price', (el) => el.textContent.trim())
-
-    // Optionally, extract the product image URL
-    // const imageUrl = await page.$eval('.product-image img', (img) => img.src)
+      const logName = await page.$eval(domElements[provider].name, (el) => el.textContent.trim())
+      const logPrice = await page.$eval(domElements[provider].price, (el) => el.textContent.trim())
+      return {
+        provider,
+        product: {
+          name: logName,
+          price: logPrice,
+        },
+      }
+    }))
 
     await browser.close()
 
-    res.json({
-        bulk: {
-        product: {
-            name: bulkPowdersName,
-            price: bulkPowdersPrice
-        },
-        },
-        myprotein: {
-        product: {
-            name: myProteinName,
-            price: myProteinPrice
-        }
-        }
-    })
+    const responseJson = results.reduce((acc, result) => {
+      acc[result.provider] = result.product
+      return acc
+    }, {})
+
+    res.json(responseJson)
+
   } catch (err) {
     console.error("Error scraping data:", err)
     res.status(500).json({ error: "Failed to scrape data" })
