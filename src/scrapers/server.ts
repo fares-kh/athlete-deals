@@ -15,12 +15,13 @@ app.get('/', (req, res) => {
 
 enum Providers {
   BULK_POWDERS = 'bulk',
-  MY_PROTEIN = 'myprotein'
+  MY_PROTEIN = 'myprotein',
+  GRENADE = 'grenade'
 }
 
 enum SearchQueries {
   PEANUT_BUTTER = 'peanutbutter',
-  POWDER = 'powder'
+  PRE_WORKOUT = 'preworkout'
 }
 
 const domElements: Record<Providers, Record<string, string>> = {
@@ -31,24 +32,31 @@ const domElements: Record<Providers, Record<string, string>> = {
   [Providers.MY_PROTEIN]: {
     name: '#product-title',
     price: '.price',
+  },
+  [Providers.GRENADE]: {
+    name: '.product__title>h1',
+    price: '.price-item',
   }
 }
 
 const providerUrls: Record<Providers, string> = {
   [Providers.BULK_POWDERS]: 'https://www.bulk.com/uk/products/',
   [Providers.MY_PROTEIN]: 'https://www.myprotein.com/p/sports-nutrition/',
-};
+  [Providers.GRENADE]: 'https://www.grenade.com/products/',
+}
 
 const searchQueryUrls: Record<SearchQueries, Record<Providers, string>> = {
   [SearchQueries.PEANUT_BUTTER]: {
     [Providers.BULK_POWDERS]: 'peanut-butter-1kg/bpf-pbut',
     [Providers.MY_PROTEIN]: 'all-natural-peanut-butter/10530743/',
+    [Providers.GRENADE]: '',
   },
-  [SearchQueries.POWDER]: {
-    [Providers.BULK_POWDERS]: '/',
-    [Providers.MY_PROTEIN]: '/',
+  [SearchQueries.PRE_WORKOUT]: {
+    [Providers.BULK_POWDERS]: 'complete-pre-workout-advanced/bble-cpad',
+    [Providers.MY_PROTEIN]: 'impact-pre-workout/11542703/',
+    [Providers.GRENADE]: 'cherry-bomb-pre-workout-330g'
   }
-};
+}
 
 app.get('/scrape', async (req, res) => {
   try {
@@ -61,7 +69,9 @@ app.get('/scrape', async (req, res) => {
     const queryUrls = searchQueryUrls[searchQuery]
 
     const results = await Promise.all(
-      providers.map(async (provider) => {
+      providers
+      .filter(provider => queryUrls[provider] !== '')
+      .map(async (provider) => {
       const url = `${providerUrls[provider]}${queryUrls[provider]}`
       const page = await browser.newPage()
       await page.goto(url, { waitUntil: 'networkidle2' })
