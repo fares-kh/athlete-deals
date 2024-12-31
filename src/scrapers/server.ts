@@ -72,10 +72,11 @@ app.get('/scrape', async (req, res) => {
       const logName = await page.$eval(domElements[provider].name, (el) => el.textContent.trim())
       const logPrice = await page.$eval(domElements[provider].price, (el) => el.textContent.trim())
       return {
-        provider,
-        product: {
-          name: logName,
-          price: logPrice,
+        [provider]: {
+          product: {
+            name: logName,
+            price: logPrice,
+          }
         },
       }
     }))
@@ -83,8 +84,7 @@ app.get('/scrape', async (req, res) => {
     await browser.close()
 
     const responseJson = results.reduce((acc, result) => {
-      acc[result.provider] = result.product
-      return acc
+      return {...acc, ...result}
     }, {})
 
     res.json(responseJson)
