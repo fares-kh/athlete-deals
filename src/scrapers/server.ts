@@ -9,10 +9,6 @@ app.use(express.json())
 const cors = require('cors');
 app.use(cors());
 
-app.get('/', (req, res) => {
-  res.send("Hello, World!")
-})
-
 enum Providers {
   BULK_POWDERS = 'bulk',
   MY_PROTEIN = 'myprotein',
@@ -74,6 +70,15 @@ app.get('/scrape', async (req, res) => {
       .map(async (provider) => {
       const url = `${providerUrls[provider]}${queryUrls[provider]}`
       const page = await browser.newPage()
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const blockResources = ['image', 'stylesheet', 'font'];
+        if (blockResources.includes(req.resourceType())) {
+          req.abort()
+        } else {
+          req.continue()
+        }
+      })
       await page.goto(url, { waitUntil: 'networkidle2' })
 
       await page.waitForSelector(domElements[provider].name)
@@ -81,6 +86,7 @@ app.get('/scrape', async (req, res) => {
 
       const logName = await page.$eval(domElements[provider].name, (el) => el.textContent.trim())
       const logPrice = await page.$eval(domElements[provider].price, (el) => el.textContent.trim())
+      console.log([provider], " complete")
       return {
         [provider]: {
           product: {
