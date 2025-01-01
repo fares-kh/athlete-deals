@@ -1,3 +1,5 @@
+import { SearchQueries } from "../types"
+
 const express = require('express')
 const puppeteer = require('puppeteer')
 
@@ -6,18 +8,13 @@ const PORT = process.env.PORT || 5000
 
 app.use(express.json())
 
-const cors = require('cors');
-app.use(cors());
+const cors = require('cors')
+app.use(cors())
 
 enum Providers {
   BULK_POWDERS = 'bulk',
   MY_PROTEIN = 'myprotein',
   GRENADE = 'grenade'
-}
-
-enum SearchQueries {
-  PEANUT_BUTTER = 'peanutbutter',
-  PRE_WORKOUT = 'preworkout'
 }
 
 const domElements: Record<Providers, Record<string, string>> = {
@@ -61,7 +58,11 @@ app.get('/scrape', async (req, res) => {
       headless: true,
     })
 
-    const searchQuery = SearchQueries.PEANUT_BUTTER // change this dep on search query
+    // const searchQuery = SearchQueries.PEANUT_BUTTER // change this dep on search query
+    const searchQuery = req.query.query
+    if (!searchQuery || !searchQueryUrls[searchQuery]) {
+      return res.status(400).json({ error: 'Invalid or missing query' })
+    }
     const queryUrls = searchQueryUrls[searchQuery]
 
     const results = await Promise.all(
@@ -70,9 +71,9 @@ app.get('/scrape', async (req, res) => {
       .map(async (provider) => {
       const url = `${providerUrls[provider]}${queryUrls[provider]}`
       const page = await browser.newPage()
-      await page.setRequestInterception(true);
+      await page.setRequestInterception(true)
       page.on('request', (req) => {
-        const blockResources = ['image', 'stylesheet', 'font'];
+        const blockResources = ['image', 'stylesheet', 'font']
         if (blockResources.includes(req.resourceType())) {
           req.abort()
         } else {
@@ -111,7 +112,6 @@ app.get('/scrape', async (req, res) => {
   }
 })
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`)
 })
